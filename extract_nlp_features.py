@@ -1,32 +1,16 @@
-import csv
-import datetime
+import sys
 
-from quora_questions.features.nlp import assert_valid_input, spacy_process, simple_similarity, entity_sets_similarity, \
+from pipey import apply_pipeline, modifier
+
+from nlp_features import spacy_process, simple_similarity, entity_sets_similarity, \
     numbers_sets_similarity, subject_sets_similarity, parse_roots_sets_similarity, parse_heads_sets_similarity, \
     object_sets_similarity, first_interrogative_matching, non_alphanumeric_sets_similarity, \
     unigram_idf_cutoff_similarity, unigram_idf_mean_difference, subject_verb_inversion_similarity, \
     number_of_children_similarity, document_pos_cutoff_similarity, compression_size_reduction_ratio, \
     email_sets_similarity, filtered_cosine_similarity, url_sets_similarity, first_word_similarity, \
     last_word_similarity, lemma_edit_distance, question_length_similarity
-from quora_questions.pipeline.pipey import apply_pipeline, modifier
-
-
-def read_dataset(file_path):
-    with open(file_path, 'r') as input_file:
-        reader = csv.DictReader(input_file)
-        for line in reader:
-            yield line
-
-
-def process_line(line_dict):
-    data = {
-        'id': int(line_dict['test_id']) if 'test_id' in line_dict else int(line_dict['id']),
-        'question1': line_dict['question1'],
-        'question2': line_dict['question2']
-    }
-    if 'is_duplicate' in line_dict:
-        data['is_duplicate'] = True if line_dict['is_duplicate'] == '1' else False
-    return data
+from utils.dataset_utils import read_dataset_from_csv, process_line, assert_valid_input, feature_extraction, \
+    write_results_to_csv
 
 nlp_pipeline = [
     (process_line, modifier.map),
@@ -53,36 +37,16 @@ nlp_pipeline = [
     (first_word_similarity, modifier.map),
     (last_word_similarity, modifier.map),
     (lemma_edit_distance, modifier.map),
-    (question_length_similarity, modifier.map)
+    (question_length_similarity, modifier.map),
+    (feature_extraction, modifier.map)
 ]
 
 
-def create_features(input_file_path):
-    for entry in apply_pipeline(read_dataset(input_file_path), nlp_pipeline):
-        yield {k: v for k, v in entry.items() if k.endswith('feature') or k == 'id'}
+def main(input_file_path, output_file_path, pipeline):
+    dataset = read_dataset_from_csv(input_file_path)
+    results = apply_pipeline(dataset, pipeline)
+    write_results_to_csv(results, output_file_path)
 
 
-def write_results_to_csv(results, output_file_path):
-    try:
-        first_row = next(results)
-    except StopIteration:
-        return
-
-    with open(output_file_path) as output_file:
-        field_names = list(first_row.keys())
-        csv_writer = csv.DictWriter(output_file, fieldnames=field_names)
-        csv_writer.writeheader()
-        field_names_set = set(field_names)
-
-        for row in results:
-            assert set(row.keys()) == field_names_set
-            csv_writer.writerow(row)
-
-
-print(datetime.datetime.now())
-write_results_to_csv(create_features('input/train.csv'), 'output/train_features.csv')
-
-print(datetime.datetime.now())
-write_results_to_csv(create_features('input/test.csv'), 'output/test_features.csv')
-
-print(datetime.datetime.now())
+if __name__ == '__main__':
+    main(sys.argv[1], sys.argv[2], nlp_pipeline)

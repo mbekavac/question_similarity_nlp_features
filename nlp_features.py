@@ -1,23 +1,15 @@
 from scipy.special import expit as logistic_sigmoid
-from quora_questions.features.helper import jaccard_index, nlp, get_heads, get_objects, get_roots, get_subjects, \
+from utils.constants import interrogative_words
+from utils.helper import jaccard_index, spacy_model, get_heads, get_objects, get_roots, get_subjects, \
     get_non_alphanumeric_characters, filter_words_with_minimum_idf, geometric_mean_of_unigram_idfs, \
     is_subject_verb_inversion, naive_normalization, number_of_children, document_pos, relative_levenshtein_distance, \
-    compare_compressed_size, get_all_lemmas, get_cosine_similarity, simple_document_filter, interrogative_words, \
+    compare_compressed_size, get_all_lemmas, get_cosine_similarity, simple_document_filter, \
     relative_size_similarity
 
 
-def assert_valid_input(entry):
-    assert isinstance(entry, dict)
-    assert 'question1' in entry
-    assert 'question2' in entry
-    assert isinstance(entry['question1'], str)
-    assert isinstance(entry['question2'], str)
-    return entry
-
-
 def spacy_process(entry):
-    entry['question1_document'] = nlp(entry['question1'])
-    entry['question2_document'] = nlp(entry['question2'])
+    entry['question1_document'] = spacy_model(entry['question1'])
+    entry['question2_document'] = spacy_model(entry['question2'])
     return entry
 
 
@@ -115,30 +107,12 @@ def non_alphanumeric_sets_similarity(entry):
 
 
 def unigram_idf_cutoff_similarity(entry):
-    entry['unigram_idf_cutoff_similarity_1_feature'] = jaccard_index(
-        filter_words_with_minimum_idf(entry['question1_document'], 1),
-        filter_words_with_minimum_idf(entry['question2_document'], 1)
-    )
-    entry['unigram_idf_cutoff_similarity_5_feature'] = jaccard_index(
-        filter_words_with_minimum_idf(entry['question1_document'], 5),
-        filter_words_with_minimum_idf(entry['question2_document'], 5)
-    )
-    entry['unigram_idf_cutoff_similarity_7.5_feature'] = jaccard_index(
-        filter_words_with_minimum_idf(entry['question1_document'], 7.5),
-        filter_words_with_minimum_idf(entry['question2_document'], 7.5)
-    )
-    entry['unigram_idf_cutoff_similarity_10_feature'] = jaccard_index(
-        filter_words_with_minimum_idf(entry['question1_document'], 10),
-        filter_words_with_minimum_idf(entry['question2_document'], 10)
-    )
-    entry['unigram_idf_cutoff_similarity_12.5_feature'] = jaccard_index(
-        filter_words_with_minimum_idf(entry['question1_document'], 12.5),
-        filter_words_with_minimum_idf(entry['question2_document'], 12.5)
-    )
-    entry['unigram_idf_cutoff_similarity_15_feature'] = jaccard_index(
-        filter_words_with_minimum_idf(entry['question1_document'], 15),
-        filter_words_with_minimum_idf(entry['question2_document'], 15)
-    )
+    for cutoff in [1, 5, 7.5, 10, 12.5, 15]:
+        feature_name = 'unigram_idf_cutoff_similarity_{cutoff}_feature'.format(cutoff=cutoff)
+        entry[feature_name] = jaccard_index(
+            filter_words_with_minimum_idf(entry['question1_document'], cutoff),
+            filter_words_with_minimum_idf(entry['question2_document'], cutoff)
+        )
     return entry
 
 
@@ -169,26 +143,12 @@ def number_of_children_similarity(entry):
 
 
 def document_pos_cutoff_similarity(entry):
-    entry['document_pos_similarity_3_feature'] = relative_levenshtein_distance(
-        document_pos(entry['question1_document'])[:3],
-        document_pos(entry['question2_document'])[:3]
-    )
-    entry['document_pos_similarity_5_feature'] = relative_levenshtein_distance(
-        document_pos(entry['question1_document'])[:5],
-        document_pos(entry['question2_document'])[:5]
-    )
-    entry['document_pos_similarity_7_feature'] = relative_levenshtein_distance(
-        document_pos(entry['question1_document'])[:7],
-        document_pos(entry['question2_document'])[:7]
-    )
-    entry['document_pos_similarity_10_feature'] = relative_levenshtein_distance(
-        document_pos(entry['question1_document'])[:10],
-        document_pos(entry['question2_document'])[:10]
-    )
-    entry['document_pos_similarity_all_feature'] = relative_levenshtein_distance(
-        document_pos(entry['question1_document']),
-        document_pos(entry['question2_document'])
-    )
+    for cutoff in [3, 5, 7, 10]:
+        feature_name = 'document_pos_similarity_{cutoff}_feature'.format(cutoff=cutoff)
+        entry[feature_name] = relative_levenshtein_distance(
+            document_pos(entry['question1_document'])[:cutoff],
+            document_pos(entry['question2_document'])[:cutoff]
+        )
     return entry
 
 
@@ -212,8 +172,8 @@ def lemma_edit_distance(entry):
 
 def first_word_similarity(entry):
     try:
-        entry['first_word_similarity_feature'] = naive_normalization(entry['question1_document'][0].similarity(
-            entry['question2_document'][0])
+        entry['first_word_similarity_feature'] = naive_normalization(
+            entry['question1_document'][0].similarity(entry['question2_document'][0])
         )
     except IndexError:
         entry['first_word_similarity_feature'] = 0.0
@@ -222,8 +182,8 @@ def first_word_similarity(entry):
 
 def last_word_similarity(entry):
     try:
-        entry['last_word_similarity_feature'] = naive_normalization(entry['question1_document'][-1].similarity(
-            entry['question2_document'][-1])
+        entry['last_word_similarity_feature'] = naive_normalization(
+            entry['question1_document'][-1].similarity(entry['question2_document'][-1])
         )
     except IndexError:
         entry['last_word_similarity_feature'] = 0.0

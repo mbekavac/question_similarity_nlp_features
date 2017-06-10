@@ -6,18 +6,15 @@ from scipy.stats.mstats import gmean
 from scipy import spatial
 import zlib
 import sys
-
-nlp = spacy.load('en_default')
-
-interrogative_words = {'what', 'why', 'who', 'when', 'whom', 'how', 'where', 'which', 'whose', 'be', 'can', 'do'}
+from utils.constants import corpus_size, spacy_model_name, serialized_idfs_path
 
 
 def _deserialize(file_path):
     with open(file_path, 'rb') as input_file:
         return pickle.load(input_file)
 
-corpus_size = 5000000
-unigram_idfs = _deserialize('input/idfs.pickle')
+_unigram_idfs = _deserialize(serialized_idfs_path)
+spacy_model = spacy.load(spacy_model_name)
 
 
 def jaccard_index(set1, set2):
@@ -47,7 +44,7 @@ def get_non_alphanumeric_characters(text):
 
 
 def get_unigram_idf(word):
-    return unigram_idfs.get((word.lemma_, word.pos_), math.log(corpus_size))
+    return _unigram_idfs.get((word.lemma_, word.pos_), math.log(corpus_size))
 
 
 def filter_words_with_minimum_idf(document, minimum_idf):
